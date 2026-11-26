@@ -1,0 +1,161 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'email', 'targetRole', 'experienceLevel', 'preferredLanguage', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == request.auth.uid && isValidId(data.uid)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && (!('targetRole' in data) || (data.targetRole is string && data.targetRole.size() <= 120))
+        && (!('experienceLevel' in data) || (data.experienceLevel is string && data.experienceLevel.size() <= 40))
+        && (!('preferredLanguage' in data) || (data.preferredLanguage is string && data.preferredLanguage.size() <= 40))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidResume(data) {
+      return data.keys().hasAll(['userId', 'title', 'template', 'atsScore', 'completenessScore', 'content', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'title', 'template', 'atsScore', 'completenessScore', 'content', 'analysis', 'rawText', 'createdAt', 'updatedAt'])
+        && data.userId is string && data.userId == request.auth.uid && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && data.template in ['modern', 'ats', 'developer', 'minimal', 'student']
+        && data.atsScore is number && data.atsScore >= 0 && data.atsScore <= 100
+        && data.completenessScore is number && data.completenessScore >= 0 && data.completenessScore <= 100
+        && data.content is map
+        && (!('analysis' in data) || data.analysis is map)
+        && (!('rawText' in data) || (data.rawText is string && data.rawText.size() <= 40000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidInterview(data) {
+      return data.keys().hasAll(['userId', 'jobRole', 'experienceLevel', 'interviewType', 'difficulty', 'language', 'totalQuestions', 'status', 'overallScore', 'turns', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'resumeId', 'resumeTitle', 'jobRole', 'companyName', 'experienceLevel', 'interviewType', 'difficulty', 'language', 'totalQuestions', 'status', 'overallScore', 'turns', 'report', 'createdAt', 'updatedAt'])
+        && data.userId is string && data.userId == request.auth.uid && isValidId(data.userId)
+        && (!('resumeId' in data) || (data.resumeId is string && data.resumeId.size() <= 128))
+        && (!('resumeTitle' in data) || (data.resumeTitle is string && data.resumeTitle.size() <= 140))
+        && data.jobRole is string && data.jobRole.size() >= 1 && data.jobRole.size() <= 120
+        && (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 120))
+        && data.experienceLevel is string && data.experienceLevel.size() >= 1 && data.experienceLevel.size() <= 40
+        && data.interviewType is string && data.interviewType.size() >= 1 && data.interviewType.size() <= 60
+        && data.difficulty in ['Beginner', 'Intermediate', 'Advanced']
+        && data.language is string && data.language.size() >= 1 && data.language.size() <= 40
+        && data.totalQuestions is number && data.totalQuestions >= 1 && data.totalQuestions <= 30
+        && data.status in ['in_progress', 'completed']
+        && data.overallScore is number && data.overallScore >= 0 && data.overallScore <= 100
+        && data.turns is list && data.turns.size() <= 30
+        && (!('report' in data) || data.report is map)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidJobPrep(data) {
+      return data.keys().hasAll(['userId', 'jobTitle', 'jobDescription', 'prepData', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'jobTitle', 'companyName', 'jobDescription', 'prepData', 'createdAt'])
+        && data.userId is string && data.userId == request.auth.uid && isValidId(data.userId)
+        && data.jobTitle is string && data.jobTitle.size() >= 1 && data.jobTitle.size() <= 140
+        && (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 120))
+        && data.jobDescription is string && data.jobDescription.size() >= 1 && data.jobDescription.size() <= 20000
+        && data.prepData is map
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'targetRole', 'experienceLevel', 'preferredLanguage', 'updatedAt']);
+      allow delete: if isValidId(userId) && isOwner(userId);
+    }
+
+    match /resumes/{resumeId} {
+      allow get: if isValidId(resumeId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isValidId(resumeId)
+        && isSignedIn()
+        && isValidResume(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(resumeId)
+        && isSignedIn()
+        && existing().userId == request.auth.uid
+        && isValidResume(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'template', 'atsScore', 'completenessScore', 'content', 'analysis', 'rawText', 'updatedAt']);
+      allow delete: if isValidId(resumeId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /interviews/{interviewId} {
+      allow get: if isValidId(interviewId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isValidId(interviewId)
+        && isSignedIn()
+        && isValidInterview(incoming())
+        && incoming().status == 'in_progress'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(interviewId)
+        && isSignedIn()
+        && existing().userId == request.auth.uid
+        && existing().status == 'in_progress'
+        && isValidInterview(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (incoming().status == 'in_progress' && incoming().diff(existing()).affectedKeys().hasOnly(['turns', 'overallScore', 'difficulty', 'updatedAt'])) ||
+          (incoming().status == 'completed' && incoming().diff(existing()).affectedKeys().hasOnly(['turns', 'overallScore', 'difficulty', 'status', 'report', 'updatedAt']))
+        );
+      allow delete: if isValidId(interviewId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /jobPreps/{prepId} {
+      allow get: if isValidId(prepId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isValidId(prepId)
+        && isSignedIn()
+        && isValidJobPrep(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(prepId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}

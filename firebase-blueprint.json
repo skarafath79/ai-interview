@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private profile and career preferences for an authenticated CareerPilot AI user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "targetRole": { "type": "string", "maxLength": 120 },
+        "experienceLevel": { "type": "string", "enum": ["Student", "Fresher", "Internship", "0-2 years", "2-5 years", "Experienced"] },
+        "preferredLanguage": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "createdAt", "updatedAt"]
+    },
+    "Resume": {
+      "title": "Resume",
+      "description": "A user's structured resume, chosen template, ATS score, and AI analysis.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "template": { "type": "string", "enum": ["modern", "ats", "developer", "minimal", "student"] },
+        "atsScore": { "type": "number" },
+        "completenessScore": { "type": "number" },
+        "content": { "type": "object" },
+        "analysis": { "type": "object" },
+        "rawText": { "type": "string", "maxLength": 40000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "template", "atsScore", "completenessScore", "content", "createdAt", "updatedAt"]
+    },
+    "Interview": {
+      "title": "Interview",
+      "description": "An adaptive AI mock interview session with questions, user answers, evaluations, and final report.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "resumeId": { "type": "string", "maxLength": 128 },
+        "resumeTitle": { "type": "string", "maxLength": 140 },
+        "jobRole": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "companyName": { "type": "string", "maxLength": 120 },
+        "experienceLevel": { "type": "string", "maxLength": 40 },
+        "interviewType": { "type": "string", "maxLength": 60 },
+        "difficulty": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
+        "language": { "type": "string", "maxLength": 40 },
+        "totalQuestions": { "type": "number" },
+        "status": { "type": "string", "enum": ["in_progress", "completed"] },
+        "overallScore": { "type": "number" },
+        "turns": { "type": "array" },
+        "report": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "jobRole", "experienceLevel", "interviewType", "difficulty", "language", "totalQuestions", "status", "overallScore", "turns", "createdAt", "updatedAt"]
+    },
+    "JobPrep": {
+      "title": "JobPrep",
+      "description": "Saved job-specific preparation guide, required skills, questions, and study plan.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "jobTitle": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "companyName": { "type": "string", "maxLength": 120 },
+        "jobDescription": { "type": "string", "maxLength": 20000 },
+        "prepData": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "jobTitle", "jobDescription", "prepData", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles isolated strictly to the owning Firebase Auth UID."
+    },
+    "/resumes/{resumeId}": {
+      "schema": { "$ref": "#/entities/Resume" },
+      "description": "User-owned resumes, templates, ATS scores, and analyses."
+    },
+    "/interviews/{interviewId}": {
+      "schema": { "$ref": "#/entities/Interview" },
+      "description": "User-owned adaptive mock interview sessions and detailed reports."
+    },
+    "/jobPreps/{prepId}": {
+      "schema": { "$ref": "#/entities/JobPrep" },
+      "description": "User-owned job preparation roadmaps and skills gap guides."
+    }
+  }
+}

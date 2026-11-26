@@ -1,0 +1,6 @@
+{
+  "name": "CareerPilot AI",
+  "description": "AI Resume Builder, ATS Analyzer, and Adaptive Mock Interview Preparation Platform.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
